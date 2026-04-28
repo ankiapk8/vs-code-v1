@@ -1,0 +1,5 @@
+artifacts/mockup-sandbox
+artifacts/build-apk
+node_modules
+.git
+.env
