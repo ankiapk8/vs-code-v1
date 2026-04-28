@@ -1,9 +1,9 @@
-FROM node:22 AS base
+FROM node:22
 
 RUN corepack enable
 WORKDIR /app
 
-# Copy package files
+# Copy all package files
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY artifacts/api-server/package.json ./artifacts/api-server/
 COPY artifacts/anki-generator/package.json ./artifacts/anki-generator/
@@ -15,19 +15,11 @@ COPY lib/api-client-react/package.json ./lib/api-client-react/
 # Install ALL dependencies
 RUN pnpm install
 
-# Copy source code (respecting .dockerignore)
+# Copy everything else
 COPY . .
 
-# Build the app (filtering to only what we need)
+# Build the app (Frontend and Backend)
 RUN pnpm --filter "...@workspace/api-server" --filter "...@workspace/anki-generator" run build
-
-# Final Production Stage
-FROM node:22
-WORKDIR /app
-RUN corepack enable
-
-# Copy everything from build stage
-COPY --from=base /app /app
 
 EXPOSE 3000
 ENV NODE_ENV=production

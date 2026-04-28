@@ -11,24 +11,28 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 async function main(): Promise<void> {
-  await ensureDatabaseSchema();
-
-  app.listen(port, (err) => {
+  // Start listening immediately so Render/Railway see the app as "Healthy"
+  const server = app.listen(port, (err) => {
     if (err) {
       logger.error({ err }, "Error listening on port");
       process.exit(1);
     }
-
     logger.info({ port }, "Server listening");
-    try {
-      autoConfigureFromEnv();
-    } catch (err) {
-      logger.warn({ err }, "APK auto-configure failed (non-fatal)");
-    }
+    
+    // Run database and APK config in the background
+    (async () => {
+      try {
+        await ensureDatabaseSchema();
+        logger.info("Database schema verified");
+        autoConfigureFromEnv();
+      } catch (err) {
+        logger.error({ err }, "Background initialization failed");
+      }
+    })();
   });
 }
 
 main().catch((err) => {
-  logger.error({ err }, "Server startup failed");
+  console.error("Fatal startup error:", err);
   process.exit(1);
 });
