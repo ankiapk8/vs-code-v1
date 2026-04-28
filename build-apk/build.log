@@ -1,0 +1,7 @@
+[7mbuild[0m Loading manifest from https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/manifest.webmanifest
+[7mbuild[0m Saved twa-manifest.json
+[7mbuild[0m Generating TWA project at /home/runner/workspace/build-apk/twa-project
+[7mbuild[0m Project generated
+[7mbuild[0m Building APK with Gradle (this takes a while)
+(node:2884) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)

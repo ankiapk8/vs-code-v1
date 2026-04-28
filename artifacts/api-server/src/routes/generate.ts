@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, decksTable, cardsTable, generationsTable } from "@workspace/db";
 import { GenerateCardsBody } from "@workspace/api-zod";
-import { createCanvas, loadImage } from "canvas";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { serializeCard } from "../lib/serialize-card";
 
 const router: IRouter = Router();
@@ -1049,6 +1049,7 @@ async function generateQbankCards(
   requestLog: { warn: (obj: unknown, message: string) => void },
   signal?: AbortSignal,
   customPrompt?: string,
+  onProgress?: (done: number, total: number) => void,
 ): Promise<RawCard[]> {
   const trimmed = text.trim();
   if (!trimmed) return [];
@@ -1065,6 +1066,7 @@ async function generateQbankCards(
 
   const allCards: RawCard[] = [];
   const CONCURRENCY = 3;
+  let done = 0;
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
     if (signal?.aborted) throw new Error("Cancelled");
     const slice = chunks.slice(i, i + CONCURRENCY);
@@ -1078,6 +1080,8 @@ async function generateQbankCards(
       if (r.status === "fulfilled") allCards.push(...r.value);
       else requestLog.warn({ err: r.reason }, "Qbank chunk generation failed");
     }
+    done += slice.length;
+    onProgress?.(done, chunks.length);
   }
 
   // Deduplicate by stem
@@ -1227,11 +1231,6 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
   res.on("close", stopHeartbeat);
   res.on("finish", stopHeartbeat);
 
-  const abortController = new AbortController();
-  req.on("close", () => abortController.abort());
-
-  sseEmit(res, { type: "progress", percent: 5, message: "Connecting to AI…" });
-
   let openai: Awaited<ReturnType<typeof getOpenAIClient>>;
   try {
     openai = await getOpenAIClient();
@@ -1241,12 +1240,37 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
     return;
   }
 
-  sseEmit(res, { type: "progress", percent: 15, message: "Writing MCQs…" });
+  const abortController = new AbortController();
+  const onClientClose = () => abortController.abort();
+  req.on("close", onClientClose);
 
   let questions: RawCard[] = [];
   try {
-    questions = await generateQbankCards(openai, text, questionCount, req.log, abortController.signal, customPrompt);
+    questions = await generateQbankCards(
+      openai,
+      text,
+      questionCount,
+      req.log,
+      abortController.signal,
+      customPrompt,
+      (done, total) => {
+        const frac = total > 0 ? done / total : 1;
+        const pct = Math.round(15 + frac * (85 - 15));
+        sseEmit(res, {
+          type: "progress",
+          percent: pct,
+          message: `Writing MCQs… (${done}/${total} chunks)`,
+        });
+      }
+    );
   } catch (error) {
+    req.off("close", onClientClose);
+    if (isAbortError(error) || abortController.signal.aborted) {
+      req.log.info("AI question bank generation cancelled by client");
+      try { sseEmit(res, { type: "error", message: "Cancelled" }); } catch { /* ignore */ }
+      try { res.end(); } catch { /* ignore */ }
+      return;
+    }
     req.log.error({ err: error }, "AI question bank generation failed");
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
@@ -1255,6 +1279,11 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
       : (error instanceof Error ? error.message : "AI question bank generation failed.");
     sseEmit(res, { type: "error", message: msg });
     res.end();
+    return;
+  }
+  req.off("close", onClientClose);
+  if (abortController.signal.aborted) {
+    try { res.end(); } catch { /* ignore */ }
     return;
   }
 

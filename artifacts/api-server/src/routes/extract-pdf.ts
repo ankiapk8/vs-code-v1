@@ -1,6 +1,6 @@
 import express, { Router, type IRouter } from "express";
 import multer from "multer";
-import { createCanvas, type Canvas } from "canvas";
+import { createCanvas, type Canvas } from "@napi-rs/canvas";
 import { createWorker } from "tesseract.js";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 

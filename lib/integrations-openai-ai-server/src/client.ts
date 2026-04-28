@@ -1,15 +1,11 @@
 import OpenAI from "openai";
 
 if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-  throw new Error(
-    "AI_INTEGRATIONS_OPENAI_BASE_URL must be set. Did you forget to provision the OpenAI AI integration?",
-  );
+  console.warn("WARNING: AI_INTEGRATIONS_OPENAI_BASE_URL is not set.");
 }
 
 if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-  throw new Error(
-    "AI_INTEGRATIONS_OPENAI_API_KEY must be set. Did you forget to provision the OpenAI AI integration?",
-  );
+  console.warn("WARNING: AI_INTEGRATIONS_OPENAI_API_KEY is not set.");
 }
 
 export const openai = new OpenAI({
