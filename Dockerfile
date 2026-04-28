@@ -22,7 +22,7 @@ COPY . .
 RUN pnpm --filter "...@workspace/api-server" --filter "...@workspace/anki-generator" run build
 
 # Final Production Stage
-FROM node:22-slim
+FROM node:22
 WORKDIR /app
 RUN corepack enable
 
