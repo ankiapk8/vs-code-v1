@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: ankigen
+    env: node
+    plan: free
+    buildCommand: pnpm install && pnpm run build
+    startCommand: node ./dist/index.mjs
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ankigen-db
+      - key: AI_INTEGRATIONS_OPENAI_API_KEY
+        fromSecret: openai-key
+    autoDeploy: true
+    healthCheckPath: /health
+    dockerfilePath: Dockerfile

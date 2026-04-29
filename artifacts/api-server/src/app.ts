@@ -35,18 +35,18 @@ app.use(express.urlencoded({ extended: true, limit: "200mb" }));
 app.use("/api", router);
 
 // Serve static files from the frontend build
-const clientDist = path.join(__dirname, "../../../anki-generator/dist/public");
+const clientDist = path.join(__dirname, "../../anki-generator/dist/public");
 app.use(express.static(clientDist));
 
 // Fallback for SPA routing
-app.get("*", (req, res) => {
-  if (req.url.startsWith("/api")) {
-    res.status(404).json({ error: "API route not found" });
-    return;
+app.use((req, res, next) => {
+  if (req.method !== "GET" || req.url.startsWith("/api")) {
+    return next();
   }
   res.sendFile(path.join(clientDist, "index.html"), (err) => {
     if (err) {
-      res.status(404).send("Frontend not built or index.html missing");
+      // If index.html is missing, it might be an API route that wasn't matched
+      next();
     }
   });
 });

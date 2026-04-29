@@ -150,6 +150,8 @@ export function GenerateForm({
   const [manualText, setManualText] = useState("");
   const [manualDeckName, setManualDeckName] = useState("");
   const [manualCardCount, setManualCardCount] = useState<number | "">("");
+  const [manualVisualCardCount, setManualVisualCardCount] = useState<number | "">("");
+  const [manualDeckType, setManualDeckType] = useState<DeckType>("text");
   const [manualCustomPrompt, setManualCustomPrompt] = useState("");
   const [sharedCustomPrompt, setSharedCustomPrompt] = useState("");
   const [applySharedPrompt, setApplySharedPrompt] = useState(true);
@@ -379,7 +381,7 @@ export function GenerateForm({
     };
     const targets = [
       ...readyFiles.map(f => ({ id: f.id, text: f.text, deckName: f.deckName, cardCount: f.cardCount, pageImages: f.pageImages, pageTexts: f.pageTexts, deckType: f.deckType, visualCardCount: f.visualCardCount, customPrompt: fileEffectivePrompt(f) })),
-      ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount, pageImages: [] as string[], pageTexts: [] as string[], deckType: "text" as DeckType, visualCardCount: "" as number | "", customPrompt: manualEffectivePrompt() }] : []),
+      ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount, pageImages: [] as string[], pageTexts: [] as string[], deckType: manualDeckType, visualCardCount: manualVisualCardCount, customPrompt: manualEffectivePrompt() }] : []),
     ];
 
     for (let i = 0; i < targets.length; i++) {
@@ -835,19 +837,49 @@ export function GenerateForm({
             transition={{ duration: 0.25 }}
             className="space-y-1.5 overflow-hidden"
           >
+            <div className="space-y-1">
+              <Label className="text-xs">Deck Type</Label>
+              <Select value={manualDeckType} onValueChange={(v: DeckType) => setManualDeckType(v)}>
+                <SelectTrigger className="h-7 text-xs">
+                  <span className="flex items-center gap-1.5 capitalize">
+                    {manualDeckType === "text" && <Type className="h-3 w-3" />}
+                    {manualDeckType === "visual" && <ImageIcon className="h-3 w-3" />}
+                    {manualDeckType === "both" && <Layers className="h-3 w-3" />}
+                    {manualDeckType}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Text only</SelectItem>
+                  <SelectItem value="visual">Visual only</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Deck Name</Label>
                 <Input value={manualDeckName} onChange={e => setManualDeckName(e.target.value)} className="h-7 text-xs" placeholder="e.g. Notes" disabled={isGeneratingAll} />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs flex items-center justify-between gap-1">
-                  <span>Target Cards</span>
-                  <span className="text-[10px] font-normal text-muted-foreground">
-                    ~{estimatedCards(manualText, 0, manualCardCount)} likely
-                  </span>
-                </Label>
-                <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Math.min(Number(e.target.value), 1000) : "")} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="1000" disabled={isGeneratingAll} />
+              <div className={`grid gap-2 ${manualDeckType === "both" ? "grid-cols-2" : "grid-cols-1"}`}>
+                {(manualDeckType === "text" || manualDeckType === "both") && (
+                  <div className="space-y-1">
+                    <Label className="text-xs flex items-center justify-between gap-1">
+                      <span className="flex items-center gap-1"><Type className="h-3 w-3" />Text Cards</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        ~{estimatedCards(manualText, 0, manualCardCount)} likely
+                      </span>
+                    </Label>
+                    <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Math.min(Number(e.target.value), 1000) : "")} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="1000" disabled={isGeneratingAll} />
+                  </div>
+                )}
+                {(manualDeckType === "visual" || manualDeckType === "both") && (
+                  <div className="space-y-1">
+                    <Label className="text-xs flex items-center justify-between gap-1">
+                      <span className="flex items-center gap-1"><ImageIcon className="h-3 w-3" />Visual Cards</span>
+                    </Label>
+                    <Input type="number" value={manualVisualCardCount} onChange={e => setManualVisualCardCount(e.target.value ? Math.min(Number(e.target.value), 1000) : "")} className="h-7 text-xs" placeholder="e.g. 10" min="1" max="1000" disabled={isGeneratingAll} />
+                  </div>
+                )}
               </div>
             </div>
             {(() => {

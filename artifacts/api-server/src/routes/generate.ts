@@ -405,7 +405,7 @@ ${chunk}
 Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
 
   const response = await createChatCompletionWithRetry(openai, {
-    model: "gpt-4.1-mini",
+    model: "openrouter/free",
     max_completion_tokens: 16384,
     stream: false as const,
     messages: [
@@ -416,9 +416,13 @@ Goal: ~${targetCards} cards for this segment, but you MUST add more if the segme
 
   const raw = (response as { choices: Array<{ message: { content: string | null } }> })
     .choices[0]?.message?.content ?? "[]";
-  const cards = parseJson<unknown>(raw)
+  console.log("AI Raw Response:", raw);
+  const parsed = parseJson<unknown>(raw);
+  console.log(`Parsed ${parsed.length} raw cards from response.`);
+  const cards = parsed
     .map(normalizeCard)
     .filter((c): c is RawCard => c !== null);
+  console.log(`Normalized into ${cards.length} valid cards.`);
   if (pageNumber !== null) {
     for (const c of cards) c.pageNumber = pageNumber;
   }
@@ -465,15 +469,23 @@ async function generateTextCards(
     if (signal?.aborted) throw new Error("Cancelled");
     const slice = chunks.slice(i, i + CONCURRENCY);
     const targets = cardsPerChunk.slice(i, i + CONCURRENCY);
-    const settled = await Promise.allSettled(
-      slice.map((chunk, idx) =>
+    
+    const chunkTasks = slice.map((chunk, idx) =>
         generateTextCardsForChunk(openai, chunk.text, targets[idx], requestLog, signal, customPrompt, chunk.pageNumber),
-      ),
     );
-    for (const r of settled) {
-      if (r.status === "fulfilled") allCards.push(...r.value);
-      else requestLog.warn({ err: r.reason }, "Text chunk generation failed");
+    const settled = await Promise.allSettled(chunkTasks);
+    const errors: any[] = [];
+    const results = settled.map(r => {
+        if (r.status === "fulfilled") return r.value;
+        errors.push(r.reason);
+        requestLog.warn({ err: r.reason }, "Text chunk generation failed");
+        return [];
+    }).flat();
+
+    if (results.length === 0 && errors.length > 0) {
+        throw errors[0];
     }
+    allCards.push(...results);
     done += slice.length;
     onProgress?.(done, chunks.length);
   }
@@ -592,7 +604,7 @@ No markdown, no commentary, no \`\`\` fences — just the JSON array.${customPro
 
   try {
     const response = await createChatCompletionWithRetry(openai, {
-      model: "gpt-4.1",
+      model: "openrouter/free",
       max_completion_tokens: 16384,
       stream: false as const,
       messages: [
@@ -635,7 +647,7 @@ No markdown, no commentary, no \`\`\` fences — just the JSON array.${customPro
     return result;
   } catch (error) {
     if (isAbortError(error) || signal?.aborted) throw error;
-    return [];
+    throw error;
   }
 }
 
@@ -898,6 +910,8 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     const filteredVisual = visualCards
       .filter(c => c.front.length > 0 && c.back.length > 0);
 
+    console.log(`Generation stats: textCards=${textCards.length}, filteredText=${filteredText.length}, visualCards=${visualCards.length}, filteredVisual=${filteredVisual.length}`);
+
     if (filteredText.length === 0 && filteredVisual.length === 0) {
       await recordRun("error", 0, "AI did not return any usable cards.");
       sseEmit(res, { type: "error", message: "AI did not return any usable cards." });
@@ -1022,7 +1036,7 @@ ${chunk}
 Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
 
   const response = await createChatCompletionWithRetry(openai, {
-    model: "gpt-4.1-mini",
+    model: "openrouter/free",
     max_completion_tokens: 16384,
     stream: false as const,
     messages: [
@@ -1387,10 +1401,10 @@ router.post("/generate", async (req, res, next): Promise<void> => {
     return;
   }
 
-  const filteredText = textCards
-    .map(c => normalizeCard(c))
-    .filter((c): c is RawCard => c !== null);
-  const filteredVisual = visualCards.filter(c => c.front.length > 0 && c.back.length > 0);
+  const filteredText = textCards.filter(c => c.front && c.back);
+  const filteredVisual = visualCards.filter(c => c.front && c.back);
+
+  console.log(`Generation stats: textCards=${textCards.length}, filteredText=${filteredText.length}, visualCards=${visualCards.length}, filteredVisual=${filteredVisual.length}`);
 
   if (filteredText.length === 0 && filteredVisual.length === 0) {
     res.status(500).json({ error: "AI did not generate any cards." });

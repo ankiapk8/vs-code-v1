@@ -10,7 +10,7 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const defaultUrl = "postgresql://localhost:5432/ankigen";
+const defaultUrl = "postgresql://neondb_owner:npg_9Vt0uYSpZANd@ep-delicate-butterfly-al90bs51.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require";
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL || defaultUrl });
 export const db = drizzle(pool, { schema });
 
