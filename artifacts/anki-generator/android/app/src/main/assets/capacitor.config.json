@@ -1,0 +1,8 @@
+{
+	"appId": "app.replit.ankigen",
+	"appName": "AnkiGen",
+	"webDir": "dist/public",
+	"android": {
+		"allowMixedContent": false
+	}
+}
