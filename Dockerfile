@@ -3,7 +3,7 @@ WORKDIR /app
 # Install pnpm
 RUN npm i -g pnpm@9
 # Copy package definitions
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 COPY artifacts/api-server/package.json ./artifacts/api-server/
 COPY artifacts/anki-generator/package.json ./artifacts/anki-generator/
 COPY lib/db/package.json ./lib/db/
@@ -23,8 +23,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json .
 COPY --from=builder /app/pnpm-lock.yaml .
 COPY --from=builder /app/pnpm-workspace.yaml .
-# Install production dependencies for API server only
-RUN pnpm install --prod --filter "@workspace/api-server"
+COPY --from=builder /app/.npmrc .
+# Install pnpm and production dependencies for API server only
+RUN npm i -g pnpm@9 && pnpm install --prod --filter "@workspace/api-server"
 ENV NODE_ENV=production
 EXPOSE $PORT
 CMD ["node", "dist/index.mjs"]
