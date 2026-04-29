@@ -1,5 +1,7 @@
 artifacts/mockup-sandbox
 artifacts/build-apk
+**/node_modules
 node_modules
 .git
 .env
+**/dist
